@@ -9,12 +9,19 @@
 #define CYC_ZPX 4
 #define CYC_AB 4
 #define CYC_ABX 4
+#define CYC_ABX_PC 5 // If page is crossed, means if the X register + Byte = >255, you have to increase a second byte.
+#define CYC_ABY 4
+#define CYC_ABY_PC 5
+#define CYC_INDX 6
 
 #define INS_LDA_IM 0xA9 // Load Accumulator Immediate
 #define INS_LDA_ZP 0xA5 // Load Accumulator Zero Page
 #define INS_LDA_ZPX 0xB5 // Load Accumulator Zero Page,X
 #define INS_LDA_AB 0xAD // Load Accumulator Absolute
 #define INS_LDA_ABX 0xBD // Load Accumulator Absolute,X
+#define INS_LDA_ABY 0xB9 // Load Accumulator Absolute,Y
+#define INS_LDA_INDX 0xA1 // Load Accumulator Indirect,X
+#define INS_LDA_INDY 0xB1 // Load Accumulator Indirect,Y
 
 // !not an exact emulation!
 // http://archive.6502.org/datasheets/wdc_w65c02s_mar_2000.pdf
@@ -22,6 +29,7 @@
 typedef unsigned char Byte;
 typedef unsigned short Word;
 typedef unsigned int u32;
+typedef signed int s32;
 
 Byte setBitOfByte(Byte value, int position)
 {
@@ -108,7 +116,7 @@ void start(CPU *cpu, Memory *mem)
     printf("CPU started.\n");
 }
 
-Byte fetchByte(u32 *cycles, Memory *mem, CPU *cpu)
+Byte fetchByte(s32 *cycles, Memory *mem, CPU *cpu)
 {
     Byte data = mem->Data[cpu->PC];
     cpu->PC++;
@@ -116,14 +124,14 @@ Byte fetchByte(u32 *cycles, Memory *mem, CPU *cpu)
     return data;
 }
 
-Byte readByte(u32 *cycles, Memory *mem, Word address)
+Byte readByte(s32 *cycles, Memory *mem, Word address)
 {
     Byte data = mem->Data[address];
     (*cycles)--;
     return data;
 }
 
-Word fetchWord(u32 *cycles, Memory *mem, CPU *cpu)
+Word fetchWord(s32 *cycles, Memory *mem, CPU *cpu)
 {
     Word data = mem->Data[cpu->PC];
     cpu->PC++;
@@ -141,13 +149,20 @@ Word fetchWord(u32 *cycles, Memory *mem, CPU *cpu)
     return data;
 }
 
+Word readWord(s32 *cycles, Memory *mem, Word address)
+{
+    Byte LowByte = readByte(cycles, mem, address);
+    Byte HighByte = readByte(cycles, mem, address + 0x01);
+    return LowByte | (HighByte << 8);
+}
+
 void LDASetStatus(CPU *cpu, Byte value) // Load Accumulator Status Flags
 {
     cpu->Z = (cpu->A == 0);
     cpu->N = (getBitOfByte(value, 7) == 1);
 }
 
-void execute(u32 cycles, Memory *mem, CPU *cpu)
+void execute(s32 cycles, Memory *mem, CPU *cpu)
 {
     printf("Beginning execution.\n");
     while (cycles > 0)
@@ -167,7 +182,7 @@ void execute(u32 cycles, Memory *mem, CPU *cpu)
             LDASetStatus(cpu, cpu->A);
             break;
 
-        case INS_LDA_ZPX: /* IMPORTANT Address can overflow! What does that mean???*/
+        case INS_LDA_ZPX: /* IMPORTANT Address can overflow! But How???*/
             Byte ZeroPageAddressX = fetchByte(&cycles, mem, cpu);
             ZeroPageAddressX += cpu->X;
             cycles--;
@@ -180,11 +195,49 @@ void execute(u32 cycles, Memory *mem, CPU *cpu)
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetStatus(cpu, cpu->A);
             break;
+
+        case INS_LDA_ABX:
+            Word _AbsoluteAddressX = fetchWord(&cycles, mem, cpu);
+            Word AbsoluteAddressX = _AbsoluteAddressX + cpu->X;
+            cpu->A = readByte(&cycles, mem, AbsoluteAddressX);
+            LDASetStatus(cpu, cpu->A);
+            if (AbsoluteAddressX - _AbsoluteAddressX >= 0xFF)
+            {
+                cycles--;
+            }
+            break;
+
+        case INS_LDA_ABY:
+            Word _AbsoluteAddressY = fetchWord(&cycles, mem, cpu);
+            Word AbsoluteAddressY = _AbsoluteAddressY + cpu->Y;
+            cpu->A = readByte(&cycles, mem, AbsoluteAddressY);
+            LDASetStatus(cpu, cpu->A);
+            if (AbsoluteAddressY - _AbsoluteAddressY >= 0xFF)
+            {
+                cycles--;
+            }
+            break;
+
+        case INS_LDA_INDX:
+            Byte ZPAddressX = fetchByte(&cycles, mem, cpu);
+            ZPAddressX += cpu->X;
+            Word EffectiveAddress = readWord(&cycles, mem, ZPAddressX);
+            cpu->A = readByte(&cycles, mem, EffectiveAddress);
+            LDASetStatus(cpu, cpu->A);
+            break;
         
         default:
             printf("Unknown instruction %c.\n", ins);
             break;
         }
     }
-    printf("Execution finished.\n");
+
+    if (cycles < 0)
+    {
+        printf("Execution failed. Too few cycles.\n");
+    }
+    else
+    {
+        printf("Execution finished.\n");
+    }
 }
