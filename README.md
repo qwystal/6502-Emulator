@@ -7,3 +7,4 @@ An emulator for the 6502 CPU
   - Immediate
   - Zero Page
   - Zero Page, X
+  - Absolute
