@@ -10,7 +10,7 @@
 #define CYC_ZPX 4
 #define CYC_AB 4
 #define CYC_ABX 4
-#define CYC_ABX_PC 5 // If page is crossed, means if the X register + Byte = >255, you have to increase a second byte.
+#define CYC_ABX_PC 5 // PC if page is crossed. means if the X register + Byte = >255, you have to increase a second byte.
 #define CYC_ABY 4
 #define CYC_ABY_PC 5
 #define CYC_INDX 6
@@ -33,6 +33,8 @@ typedef unsigned char Byte;
 typedef unsigned short Word;
 typedef unsigned int u32;
 typedef signed int s32;
+
+int unknownInstruction;
 
 Byte setBitOfByte(Byte value, int position)
 {
@@ -165,13 +167,15 @@ void LDASetStatus(CPU *cpu, Byte value) // Load Accumulator Status Flags
     cpu->N = (getBitOfByte(value, 7) == 1);
 }
 
-void execute(s32 cycles, Memory *mem, CPU *cpu)
+s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
 {
-    printf("Beginning execution.\n");
-    while (cycles > 0)
-    {
-        Byte ins = fetchByte(&cycles, mem, cpu);
-        switch (ins)
+    Byte ZeroPageAddress;
+    Word AbsoluteAddress;
+    Word EffectiveAddress;
+    Word _AbsoluteAddress;
+    Word _EffectiveAddress;
+    unknownInstruction = 0;
+    switch (ins)
         {
         case INS_LDA_IM:
             cpu->A = fetchByte(&cycles, mem, cpu);
@@ -179,70 +183,87 @@ void execute(s32 cycles, Memory *mem, CPU *cpu)
             break;
 
         case INS_LDA_ZP:
-            Byte ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, ZeroPageAddress);
             LDASetStatus(cpu, cpu->A);
             break;
 
         case INS_LDA_ZPX: /* IMPORTANT Address can overflow! But How???*/
-            Byte ZeroPageAddressX = fetchByte(&cycles, mem, cpu);
-            ZeroPageAddressX += cpu->X;
+            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress += cpu->X;
             cycles--;
-            cpu->A = readByte(&cycles, mem, ZeroPageAddressX);
+            cpu->A = readByte(&cycles, mem, ZeroPageAddress);
             LDASetStatus(cpu, cpu->A);
             break;
 
         case INS_LDA_AB:
-            Word AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = fetchWord(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetStatus(cpu, cpu->A);
             break;
 
         case INS_LDA_ABX:
-            Word _AbsoluteAddressX = fetchWord(&cycles, mem, cpu);
-            Word AbsoluteAddressX = _AbsoluteAddressX + cpu->X;
-            cpu->A = readByte(&cycles, mem, AbsoluteAddressX);
+            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = _AbsoluteAddress + cpu->X;
+            cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetStatus(cpu, cpu->A);
-            if (AbsoluteAddressX - _AbsoluteAddressX >= 0xFF)
+            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
             {
                 cycles--;
             }
             break;
 
         case INS_LDA_ABY:
-            Word _AbsoluteAddressY = fetchWord(&cycles, mem, cpu);
-            Word AbsoluteAddressY = _AbsoluteAddressY + cpu->Y;
-            cpu->A = readByte(&cycles, mem, AbsoluteAddressY);
+            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = _AbsoluteAddress + cpu->Y;
+            cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetStatus(cpu, cpu->A);
-            if (AbsoluteAddressY - _AbsoluteAddressY >= 0xFF)
+            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
             {
                 cycles--;
             }
             break;
 
         case INS_LDA_INDX:
-            Byte ZPAddressX = fetchByte(&cycles, mem, cpu);
-            ZPAddressX += cpu->X;
+            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress += cpu->X;
             cycles--;
-            Word EffectiveAddressX = readWord(&cycles, mem, ZPAddressX);
-            cpu->A = readByte(&cycles, mem, EffectiveAddressX);
+            EffectiveAddress = readWord(&cycles, mem, ZeroPageAddress);
+            cpu->A = readByte(&cycles, mem, EffectiveAddress);
             LDASetStatus(cpu, cpu->A);
             break;
 
         case INS_LDA_INDY:
-            Byte ZPAddressY = fetchByte(&cycles, mem, cpu);
-            Word EffectiveAddressY = readWord(&cycles, mem, ZPAddressY);
-            Word result = EffectiveAddressY + cpu->Y;
-            cpu->A = readByte(&cycles, mem, result);
-            if (result - EffectiveAddressY >= 0xFF)
+            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            EffectiveAddress = readWord(&cycles, mem, ZeroPageAddress);
+            _EffectiveAddress = EffectiveAddress + cpu->Y;
+            cpu->A = readByte(&cycles, mem, _EffectiveAddress);
+            if (_EffectiveAddress - EffectiveAddress >= 0xFF)
             {
                 cycles--;
             }
             break;
         
         default:
+            unknownInstruction = 1;
+        }
+    return cycles;
+}
+
+void execute(s32 cycles, Memory *mem, CPU *cpu)
+{
+    printf("Beginning execution.\n");
+    const s32 _cycles = cycles;
+    Byte ins;
+    while (cycles > 0)
+    {
+        ins = fetchByte(&cycles, mem, cpu);
+
+        cycles = LDA(cycles, mem, cpu, ins);
+
+        if (unknownInstruction == 1)
+        {
             printf("Unknown instruction %c.\n", ins);
-            break;
         }
     }
 
