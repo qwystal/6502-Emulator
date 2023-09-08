@@ -5,17 +5,19 @@
 #define EXEC_START 0xFFFC
 #define MAX_MEM 1024*64
 
-#define CYC_IM 2
-#define CYC_ZP 3
-#define CYC_ZPX 4
-#define CYC_AB 4
-#define CYC_ABX 4
-#define CYC_ABX_PC 5 // PC if page is crossed. means if the X register + Byte = >255, you have to increase a second byte.
-#define CYC_ABY 4
-#define CYC_ABY_PC 5
-#define CYC_INDX 6
-#define CYC_INDY 5
-#define CYC_INDY_PC 6
+#define CYC_LDA_IM 2 // Cycles required for Load Accumulator Immediate
+#define CYC_LDA_ZP 3
+#define CYC_LDA_ZPX 4
+#define CYC_LDA_AB 4
+#define CYC_LDA_ABX 4
+#define CYC_LDA_ABX_PC 5 // PC if page is crossed. means if the X register + Byte = >255, you have to increase a second byte.
+#define CYC_LDA_ABY 4
+#define CYC_LDA_ABY_PC 5
+#define CYC_LDA_INDX 6
+#define CYC_LDA_INDY 5
+#define CYC_LDA_INDY_PC 6
+
+#define CYC_LDX_IM 2
 
 #define INS_LDA_IM 0xA9 // Load Accumulator Immediate
 #define INS_LDA_ZP 0xA5 // Load Accumulator Zero Page
@@ -25,6 +27,8 @@
 #define INS_LDA_ABY 0xB9 // Load Accumulator Absolute,Y
 #define INS_LDA_INDX 0xA1 // Load Accumulator Indirect,X
 #define INS_LDA_INDY 0xB1 // Load Accumulator Indirect,Y
+
+#define INS_LDX_IM 0xA2 // Load X Immediate
 
 // !not an exact emulation!
 // http://archive.6502.org/datasheets/wdc_w65c02s_mar_2000.pdf
@@ -161,10 +165,16 @@ Word readWord(s32 *cycles, Memory *mem, Word address)
     return LowByte | (HighByte << 8);
 }
 
-void LDASetStatus(CPU *cpu, Byte value) // Load Accumulator Status Flags
+void LDASetFlag(CPU *cpu, Byte value) // Load Accumulator Status Flags
 {
     cpu->Z = (cpu->A == 0);
-    cpu->N = (getBitOfByte(value, 7) == 1);
+    cpu->N = (getBitOfByte(cpu->A, 7) == 1);
+}
+
+void LDXSetFlag(CPU *cpu, Byte value) // Load Accumulator Status Flags
+{
+    cpu->Z = (cpu->X == 0);
+    cpu->N = (getBitOfByte(cpu->X, 7) == 1);
 }
 
 s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
@@ -179,13 +189,13 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
         {
         case INS_LDA_IM:
             cpu->A = fetchByte(&cycles, mem, cpu);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             break;
 
         case INS_LDA_ZP:
             ZeroPageAddress = fetchByte(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, ZeroPageAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             break;
 
         case INS_LDA_ZPX: /* IMPORTANT Address can overflow! But How???*/
@@ -193,20 +203,20 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             ZeroPageAddress += cpu->X;
             cycles--;
             cpu->A = readByte(&cycles, mem, ZeroPageAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             break;
 
         case INS_LDA_AB:
             AbsoluteAddress = fetchWord(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             break;
 
         case INS_LDA_ABX:
             _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
             AbsoluteAddress = _AbsoluteAddress + cpu->X;
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
             {
                 cycles--;
@@ -217,7 +227,7 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
             AbsoluteAddress = _AbsoluteAddress + cpu->Y;
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
             {
                 cycles--;
@@ -230,7 +240,7 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             cycles--;
             EffectiveAddress = readWord(&cycles, mem, ZeroPageAddress);
             cpu->A = readByte(&cycles, mem, EffectiveAddress);
-            LDASetStatus(cpu, cpu->A);
+            LDASetFlag(cpu);
             break;
 
         case INS_LDA_INDY:
