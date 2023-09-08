@@ -183,7 +183,7 @@ void testLDA()
     testLDAFlags(&cpu, &cpucopy, &mem);
 
     start(&cpu, &mem);
-    mem.Data[EXEC_START] = INS_LDA_INDX; // Load byte from memory into Accumulator from absolute address (2 byte) + Y
+    mem.Data[EXEC_START] = INS_LDA_INDX;
     mem.Data[0xFFFD] = 0x01;
     mem.Data[0x0002] = 0x04;
     mem.Data[0x0003] = 0x04;
@@ -197,6 +197,24 @@ void testLDA()
     else
     {
         _log("INS_LDA_INDX succeeded.", 0);
+    }
+    testLDAFlags(&cpu, &cpucopy, &mem);
+
+    start(&cpu, &mem);
+    mem.Data[EXEC_START] = INS_LDA_INDY; 
+    mem.Data[0xFFFD] = 0x01;
+    mem.Data[0x0001] = 0x04;
+    mem.Data[0x0002] = 0x04;
+    mem.Data[0x0503] = 0x42;
+    cpu.Y = 0xFF;
+    execute(CYC_INDY_PC, &mem, &cpu);
+    if (!cpu.A)
+    {
+        _log("INS_LDA_INDY failed.", 1);
+    }
+    else
+    {
+        _log("INS_LDA_INDY succeeded.", 0);
     }
     testLDAFlags(&cpu, &cpucopy, &mem);
 

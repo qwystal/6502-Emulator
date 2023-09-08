@@ -4,6 +4,7 @@
 
 #define EXEC_START 0xFFFC
 #define MAX_MEM 1024*64
+
 #define CYC_IM 2
 #define CYC_ZP 3
 #define CYC_ZPX 4
@@ -13,6 +14,8 @@
 #define CYC_ABY 4
 #define CYC_ABY_PC 5
 #define CYC_INDX 6
+#define CYC_INDY 5
+#define CYC_INDY_PC 6
 
 #define INS_LDA_IM 0xA9 // Load Accumulator Immediate
 #define INS_LDA_ZP 0xA5 // Load Accumulator Zero Page
@@ -171,9 +174,8 @@ void execute(s32 cycles, Memory *mem, CPU *cpu)
         switch (ins)
         {
         case INS_LDA_IM:
-            Byte value = fetchByte(&cycles, mem, cpu);
-            cpu->A = value;
-            LDASetStatus(cpu, value);
+            cpu->A = fetchByte(&cycles, mem, cpu);
+            LDASetStatus(cpu, cpu->A);
             break;
 
         case INS_LDA_ZP:
@@ -221,9 +223,21 @@ void execute(s32 cycles, Memory *mem, CPU *cpu)
         case INS_LDA_INDX:
             Byte ZPAddressX = fetchByte(&cycles, mem, cpu);
             ZPAddressX += cpu->X;
-            Word EffectiveAddress = readWord(&cycles, mem, ZPAddressX);
-            cpu->A = readByte(&cycles, mem, EffectiveAddress);
+            cycles--;
+            Word EffectiveAddressX = readWord(&cycles, mem, ZPAddressX);
+            cpu->A = readByte(&cycles, mem, EffectiveAddressX);
             LDASetStatus(cpu, cpu->A);
+            break;
+
+        case INS_LDA_INDY:
+            Byte ZPAddressY = fetchByte(&cycles, mem, cpu);
+            Word EffectiveAddressY = readWord(&cycles, mem, ZPAddressY);
+            Word result = EffectiveAddressY + cpu->Y;
+            cpu->A = readByte(&cycles, mem, result);
+            if (result - EffectiveAddressY >= 0xFF)
+            {
+                cycles--;
+            }
             break;
         
         default:
