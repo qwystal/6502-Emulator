@@ -2,7 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define EXEC_START 0xFFFC
 #define MAX_MEM 1024*64
+#define CYC_IM 2
+#define CYC_ZP 3
+#define CYC_ZPX 4
+#define CYC_AB 4
+#define CYC_ABX 4
+
 #define INS_LDA_IM 0xA9 // Load Accumulator Immediate
 #define INS_LDA_ZP 0xA5 // Load Accumulator Zero Page
 #define INS_LDA_ZPX 0xB5 // Load Accumulator Zero Page,X
