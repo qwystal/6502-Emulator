@@ -2,7 +2,7 @@
 
 int main()
 {
-    testLDA();
+    test();
 
     return 0;
 }
