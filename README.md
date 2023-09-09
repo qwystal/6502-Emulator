@@ -3,5 +3,5 @@ An emulator for the 6502 CPU
 
 ## Instructions currently implemented
 ### Load Accumulator (LDA)
-### Load X (LDX) // Planned
-### Load Y (LDY) // Planned
+### Load X (LDX)
+### Load Y (LDY)
