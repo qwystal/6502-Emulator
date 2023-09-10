@@ -135,14 +135,7 @@ void testLDA()
     mem.Data[EXEC_START] = INS_LDA_IM; // Load byte from memory into Accumulator immediatly
     mem.Data[0xFFFD] = 0x01;
     execute(CYC_LDA_IM, &mem, &cpu);
-    if (!cpu.A)
-    {
-        _log("INS_LDA_IM failed.", 1);
-    }
-    else
-    {
-        _log("INS_LDA_IM succeeded.", 0);
-    }
+    !cpu.A ? _log("INS_LDA_IM failed.", 1) : _log("INS_LDA_IM succeeded.", 0);
     testLDAFlags(&cpu, &cpucopy, &mem);
 
     start(&cpu, &mem);
@@ -150,14 +143,7 @@ void testLDA()
     mem.Data[0xFFFD] = 0x42;
     mem.Data[0x0042] = 0x01;
     execute(CYC_LDA_ZP, &mem, &cpu);
-    if (!cpu.A)
-    {
-        _log("INS_LDA_ZP failed.", 1);
-    }
-    else
-    {
-        _log("INS_LDA_ZP succeeded.", 0);
-    }
+    !cpu.A ? _log("INS_LDA_ZP failed.", 1) : _log("INS_LDA_ZP succeeded.", 0);
     testLDAFlags(&cpu, &cpucopy, &mem);
 
     start(&cpu, &mem);
@@ -198,7 +184,7 @@ void testLDA()
     mem.Data[0xFFFE] = 0x34;
     mem.Data[0x3511] = 0x42;
     cpu.X = 0xFF;
-    execute(CYC_LDA_ABX, &mem, &cpu);
+    execute(CYC_LDA_ABX_PC, &mem, &cpu);
     if (!cpu.A)
     {
         _log("INS_LDA_ABX failed.", 1);
@@ -262,7 +248,7 @@ void testLDA()
     }
     testLDAFlags(&cpu, &cpucopy, &mem);
 
-    printf("Test LDA finished with %d errors.", errors);
+    printf("Test LDA finished with %d errors.\n", errors);
 }
 
 void testLDX()

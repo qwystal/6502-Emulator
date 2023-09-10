@@ -122,17 +122,14 @@ typedef struct CPU
 
 void initializeMemory(Memory *mem)
 {
-    printf("Initializing memory...\n");
     for (size_t i = 0; i < MAX_MEM; i++)
     {
         mem->Data[i] = 0;
     }
-    printf("Memory initialized.\n");
 }
 
 void ResetCPU(CPU *cpu)
 {
-    printf("Resetting CPU...\n");
     cpu->PC = 0xFFFC;
     cpu->SP = 0x0100;
     cpu->C = 0;
@@ -146,18 +143,15 @@ void ResetCPU(CPU *cpu)
     cpu->A = 0;
     cpu->X = 0;
     cpu->Y = 0;
-    printf("CPU reset.\n");
 }
 
 void start(CPU *cpu, Memory *mem)
 {
-    printf("Starting CPU.\n");
     ResetCPU(cpu);
     initializeMemory(mem);
-    printf("CPU started.\n");
 }
 
-Byte fetchByte(s32 *cycles, Memory *mem, CPU *cpu)
+Byte fetchByte(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Byte data = mem->Data[cpu->PC];
     cpu->PC++;
@@ -165,14 +159,14 @@ Byte fetchByte(s32 *cycles, Memory *mem, CPU *cpu)
     return data;
 }
 
-Byte readByte(s32 *cycles, Memory *mem, Word address)
+Byte readByte(s32 *cycles, const Memory *mem, Word address)
 {
     Byte data = mem->Data[address];
     (*cycles)--;
     return data;
 }
 
-Word fetchWord(s32 *cycles, Memory *mem, CPU *cpu)
+Word fetchWord(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word data = mem->Data[cpu->PC];
     cpu->PC++;
@@ -190,7 +184,7 @@ Word fetchWord(s32 *cycles, Memory *mem, CPU *cpu)
     return data;
 }
 
-Word readWord(s32 *cycles, Memory *mem, Word address)
+Word readWord(s32 *cycles, const Memory *mem, Word address)
 {
     Byte LowByte = readByte(cycles, mem, address);
     Byte HighByte = readByte(cycles, mem, address + 0x01);
@@ -215,13 +209,77 @@ void LDYSetFlag(CPU *cpu) // Load Y Register Status Flags
     cpu->N = (getBitOfByte(cpu->Y, 7) == 1);
 }
 
-s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+Byte getZeroPageAddress(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    return fetchByte(cycles, mem, cpu);
+}
+
+Byte getZeroPageAddressX(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Byte ZeroPageAddress = fetchByte(cycles, mem, cpu);
+    (*cycles)--;
+    return ZeroPageAddress + cpu->X;
+}
+
+Byte getZeroPageAddressY(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Byte ZeroPageAddress = fetchByte(cycles, mem, cpu);
+    (*cycles)--;
+    return ZeroPageAddress + cpu->Y;
+}
+
+Word getAbsoluteAddress(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    return fetchWord(cycles, mem, cpu);
+}
+
+Word getAbsoluteAddressX(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
+    Word AbsoluteAddressX = AbsoluteAddress + cpu->X;
+    if (AbsoluteAddressX - AbsoluteAddress >= 0xFF)
+    {
+        (*cycles)--;
+    }
+    return AbsoluteAddressX;
+}
+
+Word getAbsoluteAddressY(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
+    Word AbsoluteAddressY = AbsoluteAddress + cpu->Y;
+    if (AbsoluteAddressY - AbsoluteAddress >= 0xFF)
+    {
+        (*cycles)--;
+    }
+    return AbsoluteAddressY;
+}
+
+Word getIndirectX(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Byte ZeroPageAddress = getZeroPageAddressX(cycles, mem, cpu);
+    (*cycles)--;
+    Word EffectiveAddress = readWord(cycles, mem, ZeroPageAddress);
+    return EffectiveAddress;
+}
+
+Word getIndirectY(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Byte ZeroPageAddress = fetchByte(cycles, mem, cpu);
+    Word EffectiveAddress = readWord(cycles, mem, ZeroPageAddress);
+    Word EffectiveAddressY = EffectiveAddress + cpu->Y;
+    if (EffectiveAddressY - EffectiveAddress >= 0xFF)
+    {
+        (*cycles)--;
+    }
+    return EffectiveAddressY;
+}
+
+s32 LDA(s32 cycles, const Memory *mem, CPU *cpu, Byte ins)
 {
     Byte ZeroPageAddress;
     Word AbsoluteAddress;
-    Word EffectiveAddress;
-    Word _AbsoluteAddress;
-    Word _EffectiveAddress;
+
     switch (ins)
         {
         case INS_LDA_IM:
@@ -231,71 +289,50 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_LDA_ZP:
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, ZeroPageAddress);
             LDASetFlag(cpu);
             _success();
             break;
 
         case INS_LDA_ZPX: /* IMPORTANT Address can overflow! But How???*/
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
-            ZeroPageAddress += cpu->X;
-            cycles--;
+            ZeroPageAddress = getZeroPageAddressX(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, ZeroPageAddress);
             LDASetFlag(cpu);
             _success();
             break;
 
         case INS_LDA_AB:
-            AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetFlag(cpu);
             _success();
             break;
 
         case INS_LDA_ABX:
-            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
-            AbsoluteAddress = _AbsoluteAddress + cpu->X;
+            AbsoluteAddress = getAbsoluteAddressX(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetFlag(cpu);
-            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
-            {
-                cycles--;
-            }
             _success();
             break;
 
         case INS_LDA_ABY:
-            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
-            AbsoluteAddress = _AbsoluteAddress + cpu->Y;
+            AbsoluteAddress = getAbsoluteAddressY(&cycles, mem, cpu);
             cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetFlag(cpu);
-            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
-            {
-                cycles--;
-            }
             _success();
             break;
 
         case INS_LDA_INDX:
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
-            ZeroPageAddress += cpu->X;
-            cycles--;
-            EffectiveAddress = readWord(&cycles, mem, ZeroPageAddress);
-            cpu->A = readByte(&cycles, mem, EffectiveAddress);
+            AbsoluteAddress = getIndirectX(&cycles, mem, cpu);
+            cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             LDASetFlag(cpu);
             _success();
             break;
 
         case INS_LDA_INDY:
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
-            EffectiveAddress = readWord(&cycles, mem, ZeroPageAddress);
-            _EffectiveAddress = EffectiveAddress + cpu->Y;
-            cpu->A = readByte(&cycles, mem, _EffectiveAddress);
-            if (_EffectiveAddress - EffectiveAddress >= 0xFF)
-            {
-                cycles--;
-            }
+            AbsoluteAddress = getIndirectY(&cycles, mem, cpu);
+            cpu->A = readByte(&cycles, mem, AbsoluteAddress);
             _success();
             break;
         }
@@ -303,11 +340,10 @@ s32 LDA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
     return cycles;
 }
 
-s32 LDX(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+s32 LDX(s32 cycles, const Memory *mem, CPU *cpu, Byte ins)
 {
     Byte ZeroPageAddress;
     Word AbsoluteAddress;
-    Word _AbsoluteAddress;
     switch (ins)
         {
         case INS_LDX_IM:
@@ -317,37 +353,30 @@ s32 LDX(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_LDX_ZP:
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem, cpu);
             cpu->X = readByte(&cycles, mem, ZeroPageAddress);
             LDXSetFlag(cpu);
             _success();
             break;
 
         case INS_LDX_ZPY: /* IMPORTANT Address can overflow! But How???*/
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
-            ZeroPageAddress += cpu->Y;
-            cycles--;
+            ZeroPageAddress = getZeroPageAddressY(&cycles, mem, cpu);
             cpu->X = readByte(&cycles, mem, ZeroPageAddress);
             LDXSetFlag(cpu);
             _success();
             break;
 
         case INS_LDX_AB:
-            AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
             cpu->X = readByte(&cycles, mem, AbsoluteAddress);
             LDXSetFlag(cpu);
             _success();
             break;
 
         case INS_LDX_ABY:
-            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
-            AbsoluteAddress = _AbsoluteAddress + cpu->Y;
+            AbsoluteAddress = getAbsoluteAddressY(&cycles, mem, cpu);
             cpu->X = readByte(&cycles, mem, AbsoluteAddress);
             LDXSetFlag(cpu);
-            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
-            {
-                cycles--;
-            }
             _success();
             break;
         }
@@ -355,11 +384,10 @@ s32 LDX(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
     return cycles;
 }
 
-s32 LDY(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+s32 LDY(s32 cycles, const Memory *mem, CPU *cpu, Byte ins)
 {
     Byte ZeroPageAddress;
     Word AbsoluteAddress;
-    Word _AbsoluteAddress;
     switch (ins)
         {
         case INS_LDY_IM:
@@ -369,37 +397,30 @@ s32 LDY(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_LDY_ZP:
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem ,cpu);
             cpu->Y = readByte(&cycles, mem, ZeroPageAddress);
             LDYSetFlag(cpu);
             _success();
             break;
 
         case INS_LDY_ZPX: /* IMPORTANT Address can overflow! But How???*/
-            ZeroPageAddress = fetchByte(&cycles, mem, cpu);
-            ZeroPageAddress += cpu->X;
-            cycles--;
+            ZeroPageAddress = getZeroPageAddressX(&cycles, mem, cpu);
             cpu->Y = readByte(&cycles, mem, ZeroPageAddress);
             LDYSetFlag(cpu);
             _success();
             break;
 
         case INS_LDY_AB:
-            AbsoluteAddress = fetchWord(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
             cpu->Y = readByte(&cycles, mem, AbsoluteAddress);
             LDXSetFlag(cpu);
             _success();
             break;
 
         case INS_LDY_ABX:
-            _AbsoluteAddress = fetchWord(&cycles, mem, cpu);
-            AbsoluteAddress = _AbsoluteAddress + cpu->X;
+            AbsoluteAddress = getAbsoluteAddressX(&cycles, mem, cpu);
             cpu->Y = readByte(&cycles, mem, AbsoluteAddress);
             LDXSetFlag(cpu);
-            if (AbsoluteAddress - _AbsoluteAddress >= 0xFF)
-            {
-                cycles--;
-            }
             _success();
             break;
         }
@@ -407,7 +428,7 @@ s32 LDY(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
     return cycles;
 }
 
-void execute(s32 cycles, Memory *mem, CPU *cpu)
+void execute(s32 cycles, const Memory *mem, CPU *cpu)
 {
     printf("Beginning execution.\n");
     const s32 _cycles = cycles;
