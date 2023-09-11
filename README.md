@@ -5,3 +5,6 @@ An emulator for the 6502 CPU. I find the information [here](https://www.callappl
 ### Load Accumulator (LDA)
 ### Load X (LDX)
 ### Load Y (LDY)
+### Store Accumulator (STA)
+### Store X Register (STX)
+### Store Y Register (STY)
