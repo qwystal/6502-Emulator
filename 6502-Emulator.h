@@ -58,6 +58,25 @@
 #define INS_LDY_AB 0xAC
 #define INS_LDY_ABX 0xBC
 
+// Store Accumulator (STA)
+#define INS_STA_ZP 0x85
+#define INS_STA_ZPX 0x95
+#define INS_STA_AB 0x8D
+#define INS_STA_ABX 0x9D
+#define INS_STA_ABY 0x99
+#define INS_STA_INDX 0x81
+#define INS_STA_INDY 0x91
+
+// Store X Register
+#define INS_STX_ZP 0x86
+#define INS_STX_ZPY 0x96
+#define INS_STX_AB 0x8E
+
+// Store Y Register
+#define INS_STY_ZP 0x84
+#define INS_STY_ZPX 0x94
+#define INS_STY_AB 0x8C
+
 // !not an exact emulation!
 // http://archive.6502.org/datasheets/wdc_w65c02s_mar_2000.pdf
 
@@ -191,6 +210,12 @@ Word readWord(s32 *cycles, const Memory *mem, Word address)
     return LowByte | (HighByte << 8);
 }
 
+void writeByte(s32 *cycles, Memory *mem, Word address, Byte data)
+{
+    mem->Data[address] = data;
+    (*cycles)--;
+}
+
 void LDASetFlag(CPU *cpu) // Load Accumulator Status Flags
 {
     cpu->Z = (cpu->A == 0);
@@ -237,10 +262,7 @@ Word getAbsoluteAddressX(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
     Word AbsoluteAddressX = AbsoluteAddress + cpu->X;
-    if (AbsoluteAddressX - AbsoluteAddress >= 0xFF)
-    {
-        (*cycles)--;
-    }
+    (*cycles) -= (AbsoluteAddressX - AbsoluteAddress >= 0xFF) ? 1 : 0;
     return AbsoluteAddressX;
 }
 
@@ -248,10 +270,7 @@ Word getAbsoluteAddressY(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
     Word AbsoluteAddressY = AbsoluteAddress + cpu->Y;
-    if (AbsoluteAddressY - AbsoluteAddress >= 0xFF)
-    {
-        (*cycles)--;
-    }
+    (*cycles) -= (AbsoluteAddressY - AbsoluteAddress >= 0xFF) ? 1 : 0;
     return AbsoluteAddressY;
 }
 
@@ -268,10 +287,7 @@ Word getIndirectY(s32 *cycles, const Memory *mem, CPU *cpu)
     Byte ZeroPageAddress = fetchByte(cycles, mem, cpu);
     Word EffectiveAddress = readWord(cycles, mem, ZeroPageAddress);
     Word EffectiveAddressY = EffectiveAddress + cpu->Y;
-    if (EffectiveAddressY - EffectiveAddress >= 0xFF)
-    {
-        (*cycles)--;
-    }
+    (*cycles) -= (EffectiveAddressY - EffectiveAddress >= 0xFF) ? 1 : 0;
     return EffectiveAddressY;
 }
 
@@ -428,7 +444,114 @@ s32 LDY(s32 cycles, const Memory *mem, CPU *cpu, Byte ins)
     return cycles;
 }
 
-void execute(s32 cycles, const Memory *mem, CPU *cpu)
+s32 STA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+{
+    Byte ZeroPageAddress;
+    Word AbsoluteAddress;
+    switch (ins)
+    {
+        case INS_STA_ZP:
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_ZPX:
+            ZeroPageAddress = getZeroPageAddressX(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_AB:
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_ABX:
+            AbsoluteAddress = getAbsoluteAddressX(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_ABY:
+            AbsoluteAddress = getAbsoluteAddressY(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_INDX:
+            AbsoluteAddress = getIndirectX(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
+            _success();
+            break;
+
+        case INS_STA_INDY:
+            AbsoluteAddress = getIndirectY(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
+            _success();
+            break;
+    }
+    return cycles;
+}
+
+s32 STX(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+{
+    Byte ZeroPageAddress;
+    Word AbsoluteAddress;
+    switch (ins)
+    {
+        case INS_STX_ZP:
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->X);
+            _success();
+            break;
+
+        case INS_STX_ZPY:
+            ZeroPageAddress = getZeroPageAddressY(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->X);
+            _success();
+            break;
+
+        case INS_STX_AB:
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->X);
+            _success();
+            break;
+    }
+
+    return cycles;
+}
+
+s32 STY(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
+{
+    Byte ZeroPageAddress;
+    Word AbsoluteAddress;
+    switch (ins)
+    {
+        case INS_STY_ZP:
+            ZeroPageAddress = getZeroPageAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->Y);
+            _success();
+            break;
+
+        case INS_STY_ZPX:
+            ZeroPageAddress = getZeroPageAddressX(&cycles, mem, cpu);
+            writeByte(&cycles, mem, ZeroPageAddress, cpu->Y);
+            _success();
+            break;
+
+        case INS_STY_AB:
+            AbsoluteAddress = getAbsoluteAddress(&cycles, mem, cpu);
+            writeByte(&cycles, mem, AbsoluteAddress, cpu->Y);
+            _success();
+            break;
+    }
+
+    return cycles;
+}
+
+void execute(s32 cycles, Memory *mem, CPU *cpu)
 {
     printf("Beginning execution.\n");
     const s32 _cycles = cycles;
@@ -440,23 +563,12 @@ void execute(s32 cycles, const Memory *mem, CPU *cpu)
         cycles = LDA(cycles, mem, cpu, ins);
         cycles = LDX(cycles, mem, cpu, ins);
         cycles = LDY(cycles, mem, cpu, ins);
+        cycles = STA(cycles, mem, cpu, ins);
+        cycles = STX(cycles, mem, cpu, ins);
+        cycles = STY(cycles, mem, cpu, ins);
 
-        if (success == 0)
-        {
-            printf("Unknown instruction %c.\n", ins);
-        }
-        else
-        {
-            success = 0;
-        }
+        success ? 0 : printf("Unknown instruction %c.\n", ins);
     }
 
-    if (cycles < 0)
-    {
-        printf("Execution failed. Too few cycles.\n");
-    }
-    else
-    {
-        printf("Execution finished.\n");
-    }
+    cycles < 0 ? printf("Execution failed. Too few cycles.\n") : printf("Execution finished.\n");
 }
