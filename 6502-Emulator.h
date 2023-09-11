@@ -34,6 +34,25 @@
 #define CYC_LDY_ABX 4
 #define CYC_LDY_ABX_PC 5
 
+// Cycles req. Store Accumulator (STA)
+#define CYC_STA_ZP 3
+#define CYC_STA_ZPX 4
+#define CYC_STA_AB 4
+#define CYC_STA_ABX 5
+#define CYC_STA_ABY 5
+#define CYC_STA_INDX 6
+#define CYC_STA_INDY 6
+
+// Cycles req. Store X Register (STX)
+#define CYC_STX_ZP 3
+#define CYC_STX_ZPY 4
+#define CYC_STX_AB 4
+
+// Cycles req. Store Y Register (STY)
+#define CYC_STY_ZP 3
+#define CYC_STY_ZPX 4
+#define CYC_STY_AB 4
+
 // Load Accumulator (LDA)
 #define INS_LDA_IM 0xA9 // Load Accumulator Immediate
 #define INS_LDA_ZP 0xA5 // Load Accumulator Zero Page
