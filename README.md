@@ -1,5 +1,5 @@
 # 6502-Emulator
-An emulator for the 6502 CPU. I find the information [here](https://www.callapple.org/obelisk-6502-reference/).
+An emulator for the 6502 CPU. I find the information I need [here](https://www.callapple.org/obelisk-6502-reference/).
 
 ## Instructions currently implemented
 ### Load Accumulator (LDA)
