@@ -285,11 +285,27 @@ Word getAbsoluteAddressX(s32 *cycles, const Memory *mem, CPU *cpu)
     return AbsoluteAddressX;
 }
 
+Word getAbsoluteAddressXPC(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
+    Word AbsoluteAddressX = AbsoluteAddress + cpu->X;
+    (*cycles)--;
+    return AbsoluteAddressX;
+}
+
 Word getAbsoluteAddressY(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
     Word AbsoluteAddressY = AbsoluteAddress + cpu->Y;
     (*cycles) -= (AbsoluteAddressY - AbsoluteAddress >= 0xFF) ? 1 : 0;
+    return AbsoluteAddressY;
+}
+
+Word getAbsoluteAddressYPC(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
+    Word AbsoluteAddressY = AbsoluteAddress + cpu->Y;
+    (*cycles)--;
     return AbsoluteAddressY;
 }
 
@@ -488,13 +504,13 @@ s32 STA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_STA_ABX:
-            AbsoluteAddress = getAbsoluteAddressX(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddressXPC(&cycles, mem, cpu);
             writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
             _success();
             break;
 
         case INS_STA_ABY:
-            AbsoluteAddress = getAbsoluteAddressY(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddressYPC(&cycles, mem, cpu);
             writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
             _success();
             break;
