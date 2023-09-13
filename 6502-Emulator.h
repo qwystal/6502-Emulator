@@ -143,7 +143,7 @@ typedef struct Memory
 typedef struct CPU
 {
     Word PC; // Program Counter
-    Word SP; // Stack Pointer
+    Word SP; // Stack Pointer, limited to 0x0100 to 0x01FF in memory
     Byte A; // Accumulator (Register)
     Byte X, Y; // Index Registers
     
@@ -285,7 +285,7 @@ Word getAbsoluteAddressX(s32 *cycles, const Memory *mem, CPU *cpu)
     return AbsoluteAddressX;
 }
 
-Word getAbsoluteAddressXPC(s32 *cycles, const Memory *mem, CPU *cpu)
+Word getAbsoluteAddressX_5(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
     Word AbsoluteAddressX = AbsoluteAddress + cpu->X;
@@ -301,7 +301,7 @@ Word getAbsoluteAddressY(s32 *cycles, const Memory *mem, CPU *cpu)
     return AbsoluteAddressY;
 }
 
-Word getAbsoluteAddressYPC(s32 *cycles, const Memory *mem, CPU *cpu)
+Word getAbsoluteAddressY_5(s32 *cycles, const Memory *mem, CPU *cpu)
 {
     Word AbsoluteAddress = fetchWord(cycles, mem, cpu);
     Word AbsoluteAddressY = AbsoluteAddress + cpu->Y;
@@ -323,6 +323,15 @@ Word getIndirectY(s32 *cycles, const Memory *mem, CPU *cpu)
     Word EffectiveAddress = readWord(cycles, mem, ZeroPageAddress);
     Word EffectiveAddressY = EffectiveAddress + cpu->Y;
     (*cycles) -= (EffectiveAddressY - EffectiveAddress >= 0xFF) ? 1 : 0;
+    return EffectiveAddressY;
+}
+
+Word getIndirectY_6(s32 *cycles, const Memory *mem, CPU *cpu)
+{
+    Byte ZeroPageAddress = fetchByte(cycles, mem, cpu);
+    Word EffectiveAddress = readWord(cycles, mem, ZeroPageAddress);
+    Word EffectiveAddressY = EffectiveAddress + cpu->Y;
+    (*cycles)--;
     return EffectiveAddressY;
 }
 
@@ -504,13 +513,13 @@ s32 STA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_STA_ABX:
-            AbsoluteAddress = getAbsoluteAddressXPC(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddressX_5(&cycles, mem, cpu);
             writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
             _success();
             break;
 
         case INS_STA_ABY:
-            AbsoluteAddress = getAbsoluteAddressYPC(&cycles, mem, cpu);
+            AbsoluteAddress = getAbsoluteAddressY_5(&cycles, mem, cpu);
             writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
             _success();
             break;
@@ -522,7 +531,7 @@ s32 STA(s32 cycles, Memory *mem, CPU *cpu, Byte ins)
             break;
 
         case INS_STA_INDY:
-            AbsoluteAddress = getIndirectY(&cycles, mem, cpu);
+            AbsoluteAddress = getIndirectY_6(&cycles, mem, cpu);
             writeByte(&cycles, mem, AbsoluteAddress, cpu->A);
             _success();
             break;
