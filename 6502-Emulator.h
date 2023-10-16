@@ -99,14 +99,15 @@
 // !not an exact emulation!
 // http://archive.6502.org/datasheets/wdc_w65c02s_mar_2000.pdf
 
-typedef unsigned char Byte;
-typedef unsigned short Word;
+typedef unsigned char Byte; // 8 bit
+typedef unsigned short Word; // 16 bit
 typedef unsigned int u32;
 typedef signed int s32;
 
 int success;
 
-void _success(){
+void _success()
+{
     success = 1;
 }
 
@@ -143,7 +144,7 @@ typedef struct Memory
 typedef struct CPU
 {
     Word PC; // Program Counter
-    Word SP; // Stack Pointer, limited to 0x0100 to 0x01FF in memory
+    Word SP; // Stack Pointer, limited from 0x0100 to 0x01FF in memory
     Byte A; // Accumulator (Register)
     Byte X, Y; // Index Registers
     
@@ -166,7 +167,7 @@ void initializeMemory(Memory *mem)
     }
 }
 
-void ResetCPU(CPU *cpu)
+void resetCPU(CPU *cpu)
 {
     cpu->PC = 0xFFFC;
     cpu->SP = 0x0100;
@@ -185,7 +186,7 @@ void ResetCPU(CPU *cpu)
 
 void start(CPU *cpu, Memory *mem)
 {
-    ResetCPU(cpu);
+    resetCPU(cpu);
     initializeMemory(mem);
 }
 
@@ -599,7 +600,7 @@ void execute(s32 cycles, Memory *mem, CPU *cpu)
 {
     printf("Beginning execution.\n");
     const s32 _cycles = cycles;
-    Byte ins;
+    Byte ins; // Instruction
     while (cycles > 0)
     {
         ins = fetchByte(&cycles, mem, cpu);
@@ -610,6 +611,7 @@ void execute(s32 cycles, Memory *mem, CPU *cpu)
         cycles = STA(cycles, mem, cpu, ins);
         cycles = STX(cycles, mem, cpu, ins);
         cycles = STY(cycles, mem, cpu, ins);
+        
 
         success ? 0 : printf("Unknown instruction %c.\n", ins);
     }
